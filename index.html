@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>حضور وانصراف بالوجه</title>
+<style>
+:root{--bg:#f4f6fa;--c:#fff;--tx:#14213d;--m:#6b7280;--p:#2563eb;--ok:#16a34a;--no:#dc2626;--bd:#e5e7eb;color-scheme:light}
+@media(prefers-color-scheme:dark){:root{--bg:#0f172a;--c:#1e293b;--tx:#f1f5f9;--m:#94a3b8;--bd:#334155;color-scheme:dark}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,Tahoma,sans-serif;max-width:560px;margin:auto;padding:12px}
+button,input{font:inherit}button{border:1px solid var(--bd);border-radius:10px;padding:12px;background:var(--c);color:var(--tx)}
+button.p{background:var(--p);color:#fff;border-color:var(--p)}button.g{background:var(--ok);color:#fff;border-color:var(--ok)}
+input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--bd);background:var(--c);color:var(--tx);margin:4px 0 8px}
+.tabs{display:flex;gap:8px;margin:8px 0}.tabs button{flex:1}.on{background:var(--p)!important;color:#fff!important}
+.card{background:var(--c);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+.cam{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:3/4}
+video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#st{position:absolute;left:0;right:0;bottom:0;padding:12px;text-align:center;color:#fff;background:rgba(0,0,0,.55);font-size:17px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:6px 3px;border-bottom:1px solid var(--bd);text-align:right}
+.hide{display:none}.m{color:var(--m);font-size:13px}.in{color:var(--ok);font-weight:600}.out{color:#ea580c;font-weight:600}
+</style></head><body>
+<b style="font-size:18px">⏱️ حضور وانصراف بالوجه</b> <span class="m">نسخة اختبار</span>
+<div class="cam" style="margin-top:8px"><video id="v" autoplay playsinline muted></video><div id="st">جاري تحميل النماذج...</div></div>
+<div class="tabs"><button id="t1" class="on" onclick="tab(1)">البصمة</button><button id="t2" onclick="tab(2)">الأدمن</button></div>
+
+<div id="p1" class="card"><div class="m">وجّه وجهك للكاميرا وثبّت لحظة. أول بصمة = حضور، التانية = انصراف.</div><div id="last" style="margin-top:8px"></div></div>
+
+<div id="p2" class="hide">
+<div id="lg" class="card"><b>دخول الأدمن</b><input id="pw" type="password" placeholder="الباسورد (تجريبي: 1234)"><button class="p" style="width:100%" onclick="login()">دخول</button></div>
+<div id="ad" class="hide">
+ <div class="card"><b>إضافة موظف</b><input id="nm" placeholder="الاسم"><input id="id" inputmode="numeric" placeholder="الرقم (مثلا 1101)">
+  <div class="m">خد 5 لقطات للوجه (غيّر زاوية الراس شوية بين كل لقطة)</div>
+  <button class="p" style="width:100%;margin:6px 0" onclick="snap()">📷 التقاط لقطة (<span id="n">0</span>/5)</button>
+  <button class="g" style="width:100%" onclick="save()">حفظ الموظف</button><div id="am" class="m"></div></div>
+ <div class="card"><b>الموظفين</b><div id="el" class="m"></div>
+  <div style="margin-top:8px">حدّة التطابق: <b id="tv">0.50</b> <span class="m">(أقل = أدق وأصرم)</span><input id="th" type="range" min="0.3" max="0.7" step="0.01" value="0.5" oninput="setT()"></div></div>
+ <div class="card"><b>سجل اليوم</b> <span class="m">(للعرض فقط)</span>
+  <table><thead><tr><th>الرقم</th><th>الاسم</th><th>النوع</th><th>الوقت</th><th>المسافة</th></tr></thead><tbody id="lb"></tbody></table>
+  <input id="wa" inputmode="tel" placeholder="رقم الواتساب 2010xxxxxxxx" style="margin-top:8px">
+  <button class="g" style="width:100%" onclick="wa()">📤 تجهيز رسالة الواتساب</button><div id="wo"></div></div>
+ <button style="width:100%" onclick="logout()">خروج</button>
+</div></div>
+
+<script src="face-api.js"></script>
+<script>
+var emps=[],log=[],T=0.5,admin=false,cur=1,samples=[],streak={id:null,n:0},busy=false;
+function ld(){try{emps=JSON.parse(localStorage.getItem("emps")||"[]");log=JSON.parse(localStorage.getItem("log")||"[]");T=parseFloat(localStorage.getItem("T")||"0.5")}catch(e){}}
+function sv(){try{localStorage.setItem("emps",JSON.stringify(emps));localStorage.setItem("log",JSON.stringify(log));localStorage.setItem("T",T)}catch(e){}}
+function p2(n){return String(n).padStart(2,"0")}
+function now(){var d=new Date();return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate())+" "+p2(d.getHours())+":"+p2(d.getMinutes())+":"+p2(d.getSeconds())}
+function S(t){document.getElementById("st").textContent=t}
+var opt=function(){return new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:0.5})};
+async function det(){return faceapi.detectSingleFace(v,opt()).withFaceLandmarks(true).withFaceDescriptor()}
+async function init(){
+ try{
+  await faceapi.nets.tinyFaceDetector.loadFromUri("models");await faceapi.nets.faceLandmark68TinyNet.loadFromUri("models");await faceapi.nets.faceRecognitionNet.loadFromUri("models");
+  S("جاري فتح الكاميرا...");
+  v.srcObject=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:640},height:{ideal:480}},audio:false});
+  await v.play();S("جاهز");loop();
+ }catch(e){S("خطأ: "+(e.message||e)+" (لازم رابط https وإذن الكاميرا)")}}
+function match(d){var best=null,bd=9;emps.forEach(function(e){e.d.forEach(function(s){var x=faceapi.euclideanDistance(d,new Float32Array(s));if(x<bd){bd=x;best=e}})});return{e:best,d:bd}}
+async function loop(){
+ if(cur==1&&!busy){
+  var r=await det();
+  if(!r){S("مفيش وجه واضح");streak={id:null,n:0}}
+  else if(!emps.length){S("مفيش موظفين مسجلين، سجّل من الأدمن")}
+  else{var m=match(r.descriptor);
+   if(m.d<T){S("بيتعرف على: "+m.e.name+" ("+m.d.toFixed(2)+")");
+    if(streak.id==m.e.id)streak.n++;else streak={id:m.e.id,n:1};
+    if(streak.n>=3){punch(m.e,m.d);streak={id:null,n:0}}}
+   else{S("وجه غير معروف ("+m.d.toFixed(2)+")");streak={id:null,n:0}}}
+ }
+ setTimeout(loop,350)}
+function punch(e,d){
+ var t=now(),day=t.slice(0,10),mine=log.filter(function(l){return l.id==e.id&&l.ts.slice(0,10)==day}),L=document.getElementById("last");
+ if(mine.length&&(Date.parse(t.replace(" ","T"))-Date.parse(mine[mine.length-1].ts.replace(" ","T")))<30000){S("تم التسجيل لسه، استنى 30 ثانية");busy=true;setTimeout(function(){busy=false},2500);return}
+ if(mine.length>=2){L.innerHTML="<b>"+e.name+"</b> سجّل حضور وانصراف النهاردة بالفعل";busy=true;setTimeout(function(){busy=false},2500);return}
+ var type=mine.length?"انصراف":"حضور";log.push({id:e.id,name:e.name,type:type,ts:t,d:d.toFixed(2)});sv();
+ L.innerHTML="✅ <b>"+e.name+"</b> - تم تسجيل <b class='"+(type=="حضور"?"in":"out")+"'>"+type+"</b><br>"+e.id+" "+t;S("✅ "+e.name+" - "+type);
+ busy=true;setTimeout(function(){busy=false},3000);draw()}
+function tab(n){cur=n;p1.classList.toggle("hide",n!=1);p2.classList.toggle("hide",n!=2);t1.classList.toggle("on",n==1);t2.classList.toggle("on",n==2);draw()}
+function login(){if(pw.value==="1234"){admin=true;pw.value="";draw()}else alert("الباسورد غلط")}
+function logout(){admin=false;draw()}
+async function snap(){var r=await det();if(!r){am.textContent="مفيش وجه واضح، حاول تاني";return}
+ samples.push(Array.from(r.descriptor));n.textContent=samples.length;am.textContent="تم التقاط لقطة "+samples.length}
+function save(){var nme=nm.value.trim(),i=id.value.trim();
+ if(!nme||!i){am.textContent="اكتب الاسم والرقم";return}
+ if(emps.some(function(e){return e.id==i})){am.textContent="الرقم موجود قبل كده";return}
+ if(samples.length<3){am.textContent="خد 3 لقطات على الأقل";return}
+ emps.push({id:i,name:nme,d:samples});samples=[];n.textContent=0;nm.value="";id.value="";sv();am.textContent="تمت إضافة "+nme;draw()}
+function setT(){T=parseFloat(th.value);tv.textContent=T.toFixed(2);sv()}
+function wa(){var day=now().slice(0,10),rows=log.filter(function(l){return l.ts.slice(0,10)==day});
+ var txt="سجل الحضور والانصراف - "+day+"\n"+(rows.length?rows.map(function(l){return l.id+" "+l.name+" "+l.type+" "+l.ts}).join("\n"):"لا توجد بصمات");
+ var num=wa_.value.replace(/\D/g,"");wo.innerHTML='<div style="margin-top:8px"><a target="_blank" rel="noopener" style="color:var(--p);font-weight:600" href="https://wa.me/'+num+'?text='+encodeURIComponent(txt)+'">👉 اضغط لفتح الواتساب</a></div>'}
+function draw(){lg.classList.toggle("hide",admin);ad.classList.toggle("hide",!admin);
+ el.textContent=emps.map(function(e){return e.id+" "+e.name+" ("+e.d.length+" لقطات)"}).join(" | ")||"مفيش موظفين";th.value=T;tv.textContent=T.toFixed(2);
+ var day=now().slice(0,10);lb.innerHTML=log.filter(function(l){return l.ts.slice(0,10)==day}).map(function(l){return"<tr><td>"+l.id+"</td><td>"+l.name+"</td><td class='"+(l.type=="حضور"?"in":"out")+"'>"+l.type+"</td><td>"+l.ts.slice(11)+"</td><td>"+l.d+"</td></tr>"}).join("")}
+var v=document.getElementById("v"),wa_=document.getElementById("wa");
+["p1","p2","lg","ad","t1","t2","nm","id","n","am","el","th","tv","lb","wo","pw"].forEach(function(k){window[k]=document.getElementById(k)});
+window.wa=wa;ld();draw();init();
+</script></body></html>
