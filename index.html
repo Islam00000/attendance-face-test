@@ -17,7 +17,7 @@ video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:6px 3px;border-bottom:1px solid var(--bd);text-align:right}
 .hide{display:none}.m{color:var(--m);font-size:13px}.in{color:var(--ok);font-weight:600}.out{color:#ea580c;font-weight:600}
 </style></head><body>
-<b style="font-size:18px">⏱️ حضور وانصراف بالوجه</b> <span class="m">نسخة اختبار</span>
+<b style="font-size:18px">⏱️ حضور وانصراف بالوجه</b> <span class="m">نسخة اختبار v2</span>
 <div class="cam" style="margin-top:8px"><video id="v" autoplay playsinline muted></video><div id="st">جاري تحميل النماذج...</div></div>
 <div class="tabs"><button id="t1" class="on" onclick="tab(1)">البصمة</button><button id="t2" onclick="tab(2)">الأدمن</button></div>
 
@@ -102,5 +102,8 @@ function draw(){lg.classList.toggle("hide",admin);ad.classList.toggle("hide",!ad
  var day=now().slice(0,10);lb.innerHTML=log.filter(function(l){return l.ts.slice(0,10)==day}).map(function(l){return"<tr><td>"+l.id+"</td><td>"+l.name+"</td><td class='"+(l.type=="حضور"?"in":"out")+"'>"+l.type+"</td><td>"+l.ts.slice(11)+"</td><td>"+l.d+"</td></tr>"}).join("")}
 var v=document.getElementById("v"),wa_=document.getElementById("wa");
 ["p1","p2","lg","ad","t1","t2","nm","id","n","am","el","th","tv","lb","wo","pw"].forEach(function(k){window[k]=document.getElementById(k)});
-window.wa=wa;ld();draw();init();
+window.onerror=function(m,u,l){S("خطأ JS: "+m+" (سطر "+l+")")};
+S("v2: بدء التشغيل...");
+if(typeof faceapi==="undefined"){S("ملف face-api.js ما اتحملش (تأكد إنه مرفوع في نفس مكان index.html)")}
+else{try{ld();draw()}catch(e){S("خطأ تهيئة: "+e.message)}init()}
 </script></body></html>
