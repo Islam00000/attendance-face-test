@@ -49,13 +49,20 @@ function now(){var d=new Date();return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-
 function S(t){document.getElementById("st").textContent=t}
 var opt=function(){return new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:0.5})};
 async function det(){return faceapi.detectSingleFace(v,opt()).withFaceLandmarks(true).withFaceDescriptor()}
+function tm(p,name){return Promise.race([p,new Promise(function(_,r){setTimeout(function(){r(new Error("انتهت المهلة في: "+name))},60000)})])}
 async function init(){
+ var step="";
  try{
-  await faceapi.nets.tinyFaceDetector.loadFromUri("models");await faceapi.nets.faceLandmark68TinyNet.loadFromUri("models");await faceapi.nets.faceRecognitionNet.loadFromUri("models");
-  S("جاري فتح الكاميرا...");
-  v.srcObject=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:640},height:{ideal:480}},audio:false});
-  await v.play();S("جاهز");loop();
- }catch(e){S("خطأ: "+(e.message||e)+" (لازم رابط https وإذن الكاميرا)")}}
+  step="تهيئة المحرك";S("1/5 تهيئة المحرك...");
+  try{await tm(faceapi.tf.setBackend("webgl").then(function(){return faceapi.tf.ready()}),step)}catch(e){S("1/5 تحويل للمعالج العادي...");await faceapi.tf.setBackend("cpu");await faceapi.tf.ready()}
+  var be=faceapi.tf.getBackend();
+  step="كاشف الوجه (tiny_face_detector)";S("2/5 تحميل كاشف الوجه...");await tm(faceapi.nets.tinyFaceDetector.loadFromUri("models"),step);
+  step="ملامح الوجه (face_landmark_68_tiny)";S("3/5 تحميل ملامح الوجه...");await tm(faceapi.nets.faceLandmark68TinyNet.loadFromUri("models"),step);
+  step="التعرف (face_recognition) - ملف كبير 6MB";S("4/5 تحميل نموذج التعرف (6MB)...");await tm(faceapi.nets.faceRecognitionNet.loadFromUri("models"),step);
+  step="الكاميرا";S("5/5 جاري فتح الكاميرا...");
+  v.srcObject=await tm(navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:640},height:{ideal:480}},audio:false}),step);
+  await v.play();S("جاهز ("+be+")");loop();
+ }catch(e){S("خطأ في ["+step+"]: "+(e.message||e))}}
 function match(d){var best=null,bd=9;emps.forEach(function(e){e.d.forEach(function(s){var x=faceapi.euclideanDistance(d,new Float32Array(s));if(x<bd){bd=x;best=e}})});return{e:best,d:bd}}
 async function loop(){
  if(cur==1&&!busy){
